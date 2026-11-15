@@ -8,10 +8,10 @@ See [SPEC.md](SPEC.md) for the full feature spec.
 ## Run it locally
 
 ```bash
-python3 -m http.server 8765
+python3 -m http.server 8766
 ```
 
-Then open http://localhost:8765.
+Then open http://localhost:8766.
 
 ## Run the tests
 

@@ -1,6 +1,6 @@
 // Offline support. Serves the app from cache first, then refreshes the cache
 // in the background so updates show up on the next launch.
-const CACHE = 'fivefold-v1';
+const CACHE = 'fivefold-v2';
 const SHELL = [
   './',
   './index.html',

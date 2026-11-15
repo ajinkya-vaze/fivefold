@@ -31,6 +31,10 @@
         <button class="icon-btn" id="btn-help" aria-label="How to play">
           <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M9.2 9.3a2.9 2.9 0 0 1 5.6 1c0 1.9-2.8 2.4-2.8 4"/><circle cx="12" cy="17.6" r=".6" class="fill"/></svg>
         </button>
+        <button class="icon-btn" id="btn-hints" aria-label="Hints">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 18h5M10.5 21h3"/><path d="M12 3a6 6 0 0 0-3.7 10.7c.7.6 1.2 1.4 1.2 2.3h5c0-.9.5-1.7 1.2-2.3A6 6 0 0 0 12 3z"/></svg>
+          <span class="badge" id="hint-badge" hidden></span>
+        </button>
       </div>
       <h1 class="title">Fivefold</h1>
       <div class="top-side right">
@@ -89,6 +93,16 @@
     </div>
   </dialog>
 
+  <dialog id="dlg-hints" aria-labelledby="hints-title">
+    <div class="sheet" tabindex="-1">
+      <button class="close" data-close aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      <h2 id="hints-title">Hints</h2>
+      <div id="hints-body"></div>
+      <p class="footnote">Hints don't affect your stats. Shared results show 💡 with the number of hints you used.</p>
+      <div class="toasts"></div>
+    </div>
+  </dialog>
+
   <dialog id="dlg-stats" aria-labelledby="stats-title">
     <div class="sheet" tabindex="-1">
       <button class="close" data-close aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
@@ -121,7 +135,7 @@
         <span><strong>Statistics</strong><small>Clears your daily stats and streaks</small></span>
         <button class="pill danger" id="btn-reset">Reset</button>
       </div>
-      <p class="footnote">Fivefold 1.0 · No ads, no tracking. Everything is saved on this device.</p>
+      <p class="footnote">Fivefold 1.1 · No ads, no tracking. Everything is saved on this device.</p>
       <div class="toasts"></div>
     </div>
   </dialog>

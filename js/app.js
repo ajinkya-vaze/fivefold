@@ -25,21 +25,21 @@ const typed = { daily: '', practice: '' };
 let busy = false;
 
 function newDaily(day) {
-  return { day, answer: E.dailyAnswer(ANSWERS, day), rows: [], status: 'playing', hard: false };
+  return { day, answer: E.dailyAnswer(ANSWERS, day), rows: [], status: 'playing', hard: false, hints: [] };
 }
 function loadDaily() {
   const g = store.get('daily', null);
-  return g && g.day === today && Array.isArray(g.rows) ? g : newDaily(today);
+  return g && g.day === today && Array.isArray(g.rows) ? { hints: [], ...g } : newDaily(today);
 }
 function newPractice() {
   const daily = E.dailyAnswer(ANSWERS, today);
   let answer;
   do { answer = ANSWERS[Math.floor(Math.random() * ANSWERS.length)]; } while (answer === daily);
-  return { answer, rows: [], status: 'playing', hard: false };
+  return { answer, rows: [], status: 'playing', hard: false, hints: [] };
 }
 function loadPractice() {
   const g = store.get('practice', null);
-  return g && g.answer && Array.isArray(g.rows) ? g : newPractice();
+  return g && g.answer && Array.isArray(g.rows) ? { hints: [], ...g } : newPractice();
 }
 const game = () => games[mode];
 function saveGame() { store.set(mode, game()); }
@@ -251,12 +251,16 @@ document.addEventListener('keydown', (e) => {
 const tabDaily = $('#tab-daily');
 const tabPractice = $('#tab-practice');
 const btnNew = $('#btn-new');
+const hintBadge = $('#hint-badge');
 
 function renderModeBar() {
   tabDaily.textContent = `Daily #${E.puzzleNumber(today)}`;
   tabDaily.setAttribute('aria-selected', String(mode === 'daily'));
   tabPractice.setAttribute('aria-selected', String(mode === 'practice'));
   btnNew.hidden = mode !== 'practice';
+  const used = game().hints.length;
+  hintBadge.hidden = used === 0;
+  hintBadge.textContent = used;
 }
 function renderAll() {
   renderModeBar();
@@ -290,6 +294,7 @@ btnNew.addEventListener('click', startPractice);
 const dlgHelp = $('#dlg-help');
 const dlgStats = $('#dlg-stats');
 const dlgSettings = $('#dlg-settings');
+const dlgHints = $('#dlg-hints');
 
 function openDialog(d) {
   closeDialogs();
@@ -309,6 +314,7 @@ document.querySelectorAll('[data-close]').forEach((b) => {
   b.addEventListener('click', () => b.closest('dialog').close());
 });
 $('#btn-help').addEventListener('click', () => openDialog(dlgHelp));
+$('#btn-hints').addEventListener('click', () => { renderHints(); openDialog(dlgHints); });
 $('#btn-stats').addEventListener('click', () => openStats());
 $('#btn-settings').addEventListener('click', () => { renderSettings(); openDialog(dlgSettings); });
 
@@ -399,6 +405,7 @@ async function shareResult() {
     results: g.rows.map((r) => r.result),
     won: g.status === 'won',
     hard: g.hard,
+    hints: g.hints.length,
     highContrast: settings.contrast,
     dark: isDark(),
   });
@@ -412,6 +419,62 @@ async function shareResult() {
     toast('Sharing is not available');
   }
 }
+
+// ---------- Hints ----------
+function hintVisual(h) {
+  if (h.kind === 'letter') {
+    return `<div class="mini-row"><span class="tile" data-state="present">${esc(h.letter)}</span></div>`;
+  }
+  if (h.kind === 'position') {
+    const cells = Array.from({ length: E.WORD_LENGTH }, (_, i) =>
+      i === h.index ? `<span class="tile" data-state="correct">${esc(h.letter)}</span>` : '<span class="tile"></span>');
+    return `<div class="mini-row">${cells.join('')}</div>`;
+  }
+  return '';
+}
+
+function renderHints(newest = -1) {
+  const g = game();
+  const parts = [];
+  const done = g.status !== 'playing';
+
+  if (done) {
+    parts.push(`<p class="possible">This round is over.${mode === 'practice' ? ' Start a new word to use hints again.' : ' Come back tomorrow for a new puzzle.'}</p>`);
+  } else if (g.rows.length === 0) {
+    parts.push(`<p class="possible">There are <strong>${ANSWERS.length.toLocaleString()}</strong> possible answers. Make a guess to narrow them down.</p>`);
+  } else {
+    const n = E.possibleAnswers(ANSWERS, g.rows).length;
+    parts.push(`<p class="possible">${n === 1
+      ? '<strong>Only one</strong> possible answer is left!'
+      : `<strong>${n.toLocaleString()}</strong> possible answers match your guesses so far.`}</p>`);
+  }
+
+  if (g.hints.length) {
+    parts.push('<ol class="hint-list">' + g.hints.map((h, i) => `
+      <li class="hint-card${i === newest ? ' new' : ''}"><span class="hint-num">${i + 1}</span>
+        <div><p>${esc(h.text)}</p>${hintVisual(h)}</div></li>`).join('') + '</ol>');
+  }
+
+  if (!done) {
+    const left = E.MAX_HINTS - g.hints.length;
+    parts.push(left > 0
+      ? `<div class="hint-actions"><button class="pill" data-act="reveal">${g.hints.length ? 'Show another hint' : 'Show a hint'} (${left} left)</button></div>`
+      : '<p class="empty-note">No hints left for this word. You can do it!</p>');
+  }
+  $('#hints-body').innerHTML = parts.join('');
+}
+
+$('#hints-body').addEventListener('click', (e) => {
+  if (e.target.closest('[data-act]')?.dataset.act !== 'reveal') return;
+  const g = game();
+  if (g.status !== 'playing') return;
+  const hint = E.nextHint(g.answer, g.rows, g.hints);
+  if (!hint) return;
+  g.hints.push(hint);
+  saveGame();
+  renderHints(g.hints.length - 1);
+  renderModeBar();
+});
 
 // ---------- Settings ----------
 const setHard = $('#set-hard');

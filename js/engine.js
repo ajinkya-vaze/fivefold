@@ -112,7 +112,7 @@ const EMOJI = {
 };
 
 /** Spoiler-free share text. */
-export function shareText({ puzzle, results, won, hard, highContrast, dark }) {
+export function shareText({ puzzle, results, won, hard, highContrast, dark, hints = 0 }) {
   const set = highContrast ? EMOJI.contrast : EMOJI.normal;
   const absent = dark ? '⬛' : '⬜';
   const score = won ? results.length : 'X';
@@ -120,7 +120,75 @@ export function shareText({ puzzle, results, won, hard, highContrast, dark }) {
     .map((row) => row.map((r) => set[r] || absent).join(''))
     .join('\n');
   const title = puzzle ? `${GAME_NAME} #${puzzle}` : `${GAME_NAME} practice`;
-  return `${title} ${score}/${MAX_GUESSES}${hard ? '*' : ''}\n\n${grid}`;
+  const hintTag = hints ? ` 💡${hints}` : '';
+  return `${title} ${score}/${MAX_GUESSES}${hard ? '*' : ''}${hintTag}\n\n${grid}`;
+}
+
+// ---------- Hints ----------
+
+export const MAX_HINTS = 3;
+const VOWELS = 'aeiou';
+const NUMBER_WORDS = ['no', 'one', 'two', 'three', 'four', 'five'];
+
+/** Answers still consistent with every guess so far. */
+export function possibleAnswers(answers, rows) {
+  return answers.filter((w) =>
+    rows.every(({ guess, result }) => scoreGuess(guess, w).every((r, i) => r === result[i]))
+  );
+}
+
+/** Hint 1: vowel count plus whether any letter repeats. */
+export function vowelHint(answer) {
+  const vowels = [...answer].filter((c) => VOWELS.includes(c)).length;
+  const counts = {};
+  for (const c of answer) counts[c] = (counts[c] || 0) + 1;
+  const repeats = Object.values(counts).filter((n) => n > 1).length;
+  const v = `${NUMBER_WORDS[vowels]} vowel${vowels === 1 ? '' : 's'}`;
+  const r = repeats === 0 ? 'no letter appears twice' : repeats === 1 ? 'one letter repeats' : 'two letters repeat';
+  return `The word has ${v} (not counting Y), and ${r}.`;
+}
+
+/** Letters of the answer the player has already discovered (green or yellow). */
+function foundLetters(rows) {
+  const found = new Set();
+  for (const { guess, result } of rows) {
+    for (let i = 0; i < WORD_LENGTH; i++) if (result[i] !== ABSENT) found.add(guess[i]);
+  }
+  return found;
+}
+
+/** Hint 2: a letter in the answer that hasn't been found yet, or null if all are found. */
+export function letterHint(answer, rows, rand = Math.random) {
+  const found = foundLetters(rows);
+  const options = [...new Set(answer)].filter((c) => !found.has(c));
+  return options.length ? options[Math.floor(rand() * options.length)] : null;
+}
+
+/**
+ * Build the next hint for a game. Returns { kind, text } or null when hints are used up.
+ * Order: vowels → an unfound letter → a letter's position. If every letter has already
+ * been found, the second hint gives a position instead.
+ */
+export function nextHint(answer, rows, given, rand = Math.random) {
+  if (given.length >= MAX_HINTS) return null;
+  const step = given.length;
+  if (step === 0) return { kind: 'vowels', text: vowelHint(answer) };
+  if (step === 1) {
+    const ch = letterHint(answer, rows, rand);
+    if (ch) return { kind: 'letter', letter: ch, text: `The word contains the letter ${ch.toUpperCase()}.` };
+  }
+  const taken = new Set(given.filter((h) => h.kind === 'position').map((h) => h.index));
+  const placed = new Set();
+  for (const { result } of rows) result.forEach((r, i) => { if (r === CORRECT) placed.add(i); });
+  let options = [...Array(WORD_LENGTH).keys()].filter((i) => !placed.has(i) && !taken.has(i));
+  if (!options.length) options = [...Array(WORD_LENGTH).keys()].filter((i) => !taken.has(i));
+  const index = options[Math.floor(rand() * options.length)];
+  return {
+    kind: 'position',
+    index,
+    letter: answer[index],
+    text: `The ${ordinal(index + 1)} letter is ${answer[index].toUpperCase()}.`,
+  };
 }
 
 /** Stats after a daily game finishes. Returns a new object. */

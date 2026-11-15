@@ -61,6 +61,16 @@ Working name: **Fivefold** (easy to change).
    - **Share** button: copies a spoiler-free emoji grid
      (e.g. `Fivefold #142 4/6` plus colored squares) to the clipboard or the iOS share sheet.
 4. **Settings sheet**: hard mode, dark mode, high contrast, haptics, reset stats.
+5. **Hints sheet** (💡 button in the header, added in v1.1)
+   - Shows how many possible answers still fit your guesses (from the answer list).
+   - Up to **3 hints per word**, revealed one at a time, from gentle to strong:
+     1. How many vowels the word has, and whether a letter repeats.
+     2. A letter in the word that you haven't found yet. If you've already found
+        every letter, you get a position instead.
+     3. One letter's exact position, picked from spots that aren't green yet.
+   - Hints are saved with the game. A badge on the 💡 button shows how many you've used.
+   - Hints don't affect stats or streaks. Share text adds `💡N` when you used any.
+   - Hard mode doesn't require you to use hint letters.
 
 ## 5. Visual design (original look)
 
@@ -93,8 +103,8 @@ Working name: **Fivefold** (easy to change).
 
 ## 8. Out of scope (v1)
 
-Other NYT games, leaderboards and friends, badges, a solver/analysis bot, hints,
-cloud sync, notifications.
+Other NYT games, leaderboards and friends, badges, a solver/analysis bot,
+cloud sync, notifications. (Hints were added in v1.1.)
 
 ## 9. How it gets onto your iPhone (decided: A, web app)
 

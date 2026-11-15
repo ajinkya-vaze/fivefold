@@ -2,7 +2,7 @@
 import {
   scoreGuess, hardModeError, keyboardState, dayNumber, dailyAnswer,
   shareText, recordDailyResult, currentStreak, emptyStats, formatCountdown,
-  msUntilTomorrow,
+  msUntilTomorrow, possibleAnswers, vowelHint, letterHint, nextHint,
 } from '../js/engine.js';
 import { ANSWERS, VALID } from '../js/words.js';
 
@@ -74,6 +74,30 @@ eq('share text', shareText({
   results: [s('y..g.'), s('ggggg')],
 }), 'Fivefold #12 2/6*\n\n🟨⬛⬛🟩⬛\n🟩🟩🟩🟩🟩');
 eq('share loss', shareText({ puzzle: 1, won: false, results: [s('.....')] }).split('\n')[0], 'Fivefold #1 X/6');
+
+eq('share with hints', shareText({ puzzle: 3, won: true, hints: 2, results: [s('ggggg')] }).split('\n')[0], 'Fivefold #3 1/6 💡2');
+
+// --- hints
+const r0 = () => 0; // always pick the first option
+eq('possible answers filter', possibleAnswers(['crane', 'crate', 'trace', 'slate'],
+  [{ guess: 'crabs', result: scoreGuess('crabs', 'crate') }]), ['crane', 'crate']);
+eq('possible answers, no rows', possibleAnswers(['a', 'b'], []).length, 2);
+eq('vowel hint', vowelHint('crane'), 'The word has two vowels (not counting Y), and no letter appears twice.');
+eq('vowel hint repeats', vowelHint('apple'), 'The word has two vowels (not counting Y), and one letter repeats.');
+eq('vowel hint one vowel', vowelHint('lymph'), 'The word has no vowels (not counting Y), and no letter appears twice.');
+eq('letter hint skips found letters', letterHint('crane', [{ guess: 'cabin', result: scoreGuess('cabin', 'crane') }], r0), 'r');
+eq('letter hint null when all found', letterHint('crane', [{ guess: 'nacre', result: scoreGuess('nacre', 'crane') }], r0), null);
+const rowsCr = [{ guess: 'cabin', result: scoreGuess('cabin', 'crane') }]; // c green, a/n yellow
+let given = [];
+let h = nextHint('crane', rowsCr, given, r0);
+eq('hint 1 is vowels', h.kind, 'vowels'); given.push(h);
+h = nextHint('crane', rowsCr, given, r0);
+eq('hint 2 is unfound letter', [h.kind, h.letter], ['letter', 'r']); given.push(h);
+h = nextHint('crane', rowsCr, given, r0);
+eq('hint 3 skips placed position 0', [h.kind, h.index, h.text], ['position', 1, 'The 2nd letter is R.']); given.push(h);
+eq('no 4th hint', nextHint('crane', rowsCr, given, r0), null);
+const allFound = [{ guess: 'nacre', result: scoreGuess('nacre', 'crane') }];
+eq('hint 2 falls back to position', nextHint('crane', allFound, [{ kind: 'vowels' }], r0).kind, 'position');
 
 // --- word lists
 eq('answers are 5 letters', ANSWERS.every((w) => /^[a-z]{5}$/.test(w)), true);
