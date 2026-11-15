@@ -2,7 +2,7 @@
 import {
   scoreGuess, hardModeError, keyboardState, dayNumber, dailyAnswer,
   shareText, recordDailyResult, currentStreak, emptyStats, formatCountdown,
-  msUntilTomorrow, possibleAnswers, vowelHint, letterHint, nextHint,
+  msUntilTomorrow, nextHint, positionHint, eliminationHint, eliminatedLetters, keyboardWithHints,
 } from '../js/engine.js';
 import { ANSWERS, VALID } from '../js/words.js';
 
@@ -79,25 +79,36 @@ eq('share with hints', shareText({ puzzle: 3, won: true, hints: 2, results: [s('
 
 // --- hints
 const r0 = () => 0; // always pick the first option
-eq('possible answers filter', possibleAnswers(['crane', 'crate', 'trace', 'slate'],
-  [{ guess: 'crabs', result: scoreGuess('crabs', 'crate') }]), ['crane', 'crate']);
-eq('possible answers, no rows', possibleAnswers(['a', 'b'], []).length, 2);
-eq('vowel hint', vowelHint('crane'), 'The word has two vowels (not counting Y), and no letter appears twice.');
-eq('vowel hint repeats', vowelHint('apple'), 'The word has two vowels (not counting Y), and one letter repeats.');
-eq('vowel hint one vowel', vowelHint('lymph'), 'The word has no vowels (not counting Y), and no letter appears twice.');
-eq('letter hint skips found letters', letterHint('crane', [{ guess: 'cabin', result: scoreGuess('cabin', 'crane') }], r0), 'r');
-eq('letter hint null when all found', letterHint('crane', [{ guess: 'nacre', result: scoreGuess('nacre', 'crane') }], r0), null);
 const rowsCr = [{ guess: 'cabin', result: scoreGuess('cabin', 'crane') }]; // c green, a/n yellow
 let given = [];
 let h = nextHint('crane', rowsCr, given, r0);
-eq('hint 1 is vowels', h.kind, 'vowels'); given.push(h);
+eq('hint 1 is a position, skipping green spot 0', [h.kind, h.index, h.letter, h.text], ['position', 1, 'r', 'The 2nd letter is R.']);
+given.push(h);
 h = nextHint('crane', rowsCr, given, r0);
-eq('hint 2 is unfound letter', [h.kind, h.letter], ['letter', 'r']); given.push(h);
+eq('hint 2 removes 5 letters', [h.kind, h.letters.length], ['eliminate', 5]);
+eq('hint 2 never removes answer or guessed letters', h.letters.some((c) => 'cranebi'.includes(c)), false);
+eq('hint 2 picks from the pool in order with r0', h.letters, ['d', 'f', 'g', 'h', 'j']);
+eq('hint 2 text', h.text, 'Removed 5 letters not in the word: D, F, G, H, J.');
+given.push(h);
 h = nextHint('crane', rowsCr, given, r0);
-eq('hint 3 skips placed position 0', [h.kind, h.index, h.text], ['position', 1, 'The 2nd letter is R.']); given.push(h);
+eq('hint 3 removes different letters', [h.kind, h.letters], ['eliminate', ['k', 'l', 'm', 'o', 'p']]);
+given.push(h);
 eq('no 4th hint', nextHint('crane', rowsCr, given, r0), null);
-const allFound = [{ guess: 'nacre', result: scoreGuess('nacre', 'crane') }];
-eq('hint 2 falls back to position', nextHint('crane', allFound, [{ kind: 'vowels' }], r0).kind, 'position');
+eq('eliminated set', eliminatedLetters(given).size, 10);
+const kb = keyboardWithHints(rowsCr, given);
+eq('keyboard: hint letter green', kb.r, 'correct');
+eq('keyboard: eliminated grey', [kb.d, kb.p], ['absent', 'absent']);
+eq('keyboard: guess colours kept', [kb.c, kb.a], ['correct', 'present']);
+// every wrong letter already guessed -> elimination falls back to a position
+const wrong = [...'bdfghijklmopqstuvwxyz'];
+const guessedAll = [];
+for (let i = 0; i < wrong.length; i += 5) {
+  const g = wrong.slice(i, i + 5).join('').padEnd(5, 'z');
+  guessedAll.push({ guess: g, result: scoreGuess(g, 'crane') });
+}
+eq('elimination null when pool empty', eliminationHint('crane', guessedAll, [], r0), null);
+eq('falls back to position', nextHint('crane', guessedAll, [{ kind: 'position', index: 0 }], r0).kind, 'position');
+eq('position hint avoids earlier revealed spot', positionHint('crane', [], [{ kind: 'position', index: 0 }], r0).index, 1);
 
 // --- word lists
 eq('answers are 5 letters', ANSWERS.every((w) => /^[a-z]{5}$/.test(w)), true);

@@ -125,70 +125,80 @@ export function shareText({ puzzle, results, won, hard, highContrast, dark, hint
 }
 
 // ---------- Hints ----------
+// Hint 1 reveals a letter in its correct spot. Hints 2 and 3 remove wrong letters
+// from the keyboard. Giving up is handled by the app (it just ends the round).
 
 export const MAX_HINTS = 3;
-const VOWELS = 'aeiou';
-const NUMBER_WORDS = ['no', 'one', 'two', 'three', 'four', 'five'];
+export const LETTERS_PER_ELIMINATION = 5;
+const ALPHABET = 'abcdefghijklmnopqrstuvwxyz';
 
-/** Answers still consistent with every guess so far. */
-export function possibleAnswers(answers, rows) {
-  return answers.filter((w) =>
-    rows.every(({ guess, result }) => scoreGuess(guess, w).every((r, i) => r === result[i]))
-  );
+function pick(options, rand) {
+  return options[Math.floor(rand() * options.length)];
 }
 
-/** Hint 1: vowel count plus whether any letter repeats. */
-export function vowelHint(answer) {
-  const vowels = [...answer].filter((c) => VOWELS.includes(c)).length;
-  const counts = {};
-  for (const c of answer) counts[c] = (counts[c] || 0) + 1;
-  const repeats = Object.values(counts).filter((n) => n > 1).length;
-  const v = `${NUMBER_WORDS[vowels]} vowel${vowels === 1 ? '' : 's'}`;
-  const r = repeats === 0 ? 'no letter appears twice' : repeats === 1 ? 'one letter repeats' : 'two letters repeat';
-  return `The word has ${v} (not counting Y), and ${r}.`;
-}
-
-/** Letters of the answer the player has already discovered (green or yellow). */
-function foundLetters(rows) {
-  const found = new Set();
-  for (const { guess, result } of rows) {
-    for (let i = 0; i < WORD_LENGTH; i++) if (result[i] !== ABSENT) found.add(guess[i]);
-  }
-  return found;
-}
-
-/** Hint 2: a letter in the answer that hasn't been found yet, or null if all are found. */
-export function letterHint(answer, rows, rand = Math.random) {
-  const found = foundLetters(rows);
-  const options = [...new Set(answer)].filter((c) => !found.has(c));
-  return options.length ? options[Math.floor(rand() * options.length)] : null;
-}
-
-/**
- * Build the next hint for a game. Returns { kind, text } or null when hints are used up.
- * Order: vowels → an unfound letter → a letter's position. If every letter has already
- * been found, the second hint gives a position instead.
- */
-export function nextHint(answer, rows, given, rand = Math.random) {
-  if (given.length >= MAX_HINTS) return null;
-  const step = given.length;
-  if (step === 0) return { kind: 'vowels', text: vowelHint(answer) };
-  if (step === 1) {
-    const ch = letterHint(answer, rows, rand);
-    if (ch) return { kind: 'letter', letter: ch, text: `The word contains the letter ${ch.toUpperCase()}.` };
-  }
-  const taken = new Set(given.filter((h) => h.kind === 'position').map((h) => h.index));
+/** Reveal one letter in its correct position, preferring spots that aren't green yet. */
+export function positionHint(answer, rows, given = [], rand = Math.random) {
   const placed = new Set();
   for (const { result } of rows) result.forEach((r, i) => { if (r === CORRECT) placed.add(i); });
-  let options = [...Array(WORD_LENGTH).keys()].filter((i) => !placed.has(i) && !taken.has(i));
-  if (!options.length) options = [...Array(WORD_LENGTH).keys()].filter((i) => !taken.has(i));
-  const index = options[Math.floor(rand() * options.length)];
+  for (const h of given) if (h.kind === 'position') placed.add(h.index);
+  const all = [...Array(WORD_LENGTH).keys()];
+  const options = all.filter((i) => !placed.has(i));
+  const index = pick(options.length ? options : all, rand);
   return {
     kind: 'position',
     index,
     letter: answer[index],
     text: `The ${ordinal(index + 1)} letter is ${answer[index].toUpperCase()}.`,
   };
+}
+
+/** Letters already removed from the keyboard by earlier hints. */
+export function eliminatedLetters(given) {
+  return new Set(given.filter((h) => h.kind === 'eliminate').flatMap((h) => h.letters));
+}
+
+/**
+ * Remove up to LETTERS_PER_ELIMINATION letters that are not in the answer and
+ * that the player hasn't already ruled out. Returns null if none are left.
+ */
+export function eliminationHint(answer, rows, given = [], rand = Math.random) {
+  const known = new Set([...answer, ...eliminatedLetters(given)]);
+  for (const { guess } of rows) for (const c of guess) known.add(c);
+  const pool = [...ALPHABET].filter((c) => !known.has(c));
+  if (!pool.length) return null;
+  const letters = [];
+  while (letters.length < LETTERS_PER_ELIMINATION && pool.length) {
+    letters.push(pool.splice(Math.floor(rand() * pool.length), 1)[0]);
+  }
+  letters.sort();
+  const list = letters.map((c) => c.toUpperCase()).join(', ');
+  const n = letters.length;
+  return {
+    kind: 'eliminate',
+    letters,
+    text: `Removed ${n} letter${n === 1 ? '' : 's'} not in the word: ${list}.`,
+  };
+}
+
+/**
+ * The next hint for a game, or null when all hints are used.
+ * Hint 1 is always a position. Hints 2 and 3 remove letters, falling back to a
+ * position if every wrong letter has already been ruled out.
+ */
+export function nextHint(answer, rows, given, rand = Math.random) {
+  if (given.length >= MAX_HINTS) return null;
+  if (given.length === 0) return positionHint(answer, rows, given, rand);
+  return eliminationHint(answer, rows, given, rand) || positionHint(answer, rows, given, rand);
+}
+
+/** Keyboard colours including what hints revealed. Guess results take priority. */
+export function keyboardWithHints(rows, given) {
+  const keys = keyboardState(rows);
+  for (const h of given) {
+    if (h.kind === 'position' && keys[h.letter] !== CORRECT) keys[h.letter] = CORRECT;
+    if (h.kind === 'eliminate') for (const c of h.letters) if (!keys[c]) keys[c] = ABSENT;
+  }
+  return keys;
 }
 
 /** Stats after a daily game finishes. Returns a new object. */

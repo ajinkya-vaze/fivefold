@@ -61,16 +61,21 @@ Working name: **Fivefold** (easy to change).
    - **Share** button: copies a spoiler-free emoji grid
      (e.g. `Fivefold #142 4/6` plus colored squares) to the clipboard or the iOS share sheet.
 4. **Settings sheet**: hard mode, dark mode, high contrast, haptics, reset stats.
-5. **Hints sheet** (💡 button in the header, added in v1.1)
-   - Shows how many possible answers still fit your guesses (from the answer list).
-   - Up to **3 hints per word**, revealed one at a time, from gentle to strong:
-     1. How many vowels the word has, and whether a letter repeats.
-     2. A letter in the word that you haven't found yet. If you've already found
-        every letter, you get a position instead.
-     3. One letter's exact position, picked from spots that aren't green yet.
+5. **Hints sheet** (💡 button in the header; v1.2)
+   - **3 hints per word**, revealed one at a time, always in this order:
+     1. **Reveal a letter**: one letter in its correct position, picked from
+        spots that aren't green yet. That letter turns green on the keyboard.
+     2. **Remove letters**: 5 letters that aren't in the word, and that you
+        haven't already ruled out, are greyed out on the keyboard.
+     3. **Remove letters**: 5 more, as above. If every wrong letter is already
+        ruled out, this hint reveals another position instead.
+   - **Give up**: always available while playing. It asks for confirmation, then
+     reveals the word and ends the round. In Daily it counts as a loss and resets
+     the streak. In Practice it has no effect on stats.
    - Hints are saved with the game. A badge on the 💡 button shows how many you've used.
    - Hints don't affect stats or streaks. Share text adds `💡N` when you used any.
    - Hard mode doesn't require you to use hint letters.
+   - Greyed-out letters can still be typed. The keyboard just marks them as known wrong.
 
 ## 5. Visual design (original look)
 
@@ -104,7 +109,7 @@ Working name: **Fivefold** (easy to change).
 ## 8. Out of scope (v1)
 
 Other NYT games, leaderboards and friends, badges, a solver/analysis bot,
-cloud sync, notifications. (Hints were added in v1.1.)
+cloud sync, notifications. (Hints were added in v1.1 and reworked in v1.2.)
 
 ## 9. How it gets onto your iPhone (decided: A, web app)
 

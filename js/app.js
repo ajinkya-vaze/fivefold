@@ -121,7 +121,7 @@ function makeKey(key, html, wide = false, label) {
   return b;
 }
 function renderKeyboard() {
-  const state = E.keyboardState(game().rows);
+  const state = E.keyboardWithHints(game().rows, game().hints);
   for (const [ch, el] of Object.entries(keyEls)) {
     if (state[ch]) el.dataset.state = state[ch]; else delete el.dataset.state;
   }
@@ -342,7 +342,7 @@ function renderStats() {
 
   if (mode === 'practice' && done) {
     parts.push(`<div class="result-banner">
-      <div class="big">${g.status === 'won' ? `Solved in ${g.rows.length}/${E.MAX_GUESSES}` : 'Out of guesses'}</div>
+      <div class="big">${g.status === 'won' ? `Solved in ${g.rows.length}/${E.MAX_GUESSES}` : g.gaveUp ? 'You gave up' : 'Out of guesses'}</div>
       ${g.status === 'lost' ? `<div class="answer">${esc(g.answer.toUpperCase())}</div>` : ''}
       <div class="btn-row"><button class="pill secondary" data-act="share">Share</button><button class="pill" data-act="new">New word</button></div>
     </div><h3>Daily statistics</h3>`);
@@ -422,13 +422,16 @@ async function shareResult() {
 
 // ---------- Hints ----------
 function hintVisual(h) {
-  if (h.kind === 'letter') {
-    return `<div class="mini-row"><span class="tile" data-state="present">${esc(h.letter)}</span></div>`;
-  }
   if (h.kind === 'position') {
     const cells = Array.from({ length: E.WORD_LENGTH }, (_, i) =>
       i === h.index ? `<span class="tile" data-state="correct">${esc(h.letter)}</span>` : '<span class="tile"></span>');
     return `<div class="mini-row">${cells.join('')}</div>`;
+  }
+  if (h.kind === 'eliminate') {
+    return `<div class="mini-row">${h.letters.map((c) => `<span class="tile" data-state="absent">${esc(c)}</span>`).join('')}</div>`;
+  }
+  if (h.kind === 'letter') { // hints saved by version 1.1
+    return `<div class="mini-row"><span class="tile" data-state="present">${esc(h.letter)}</span></div>`;
   }
   return '';
 }
@@ -437,16 +440,15 @@ function renderHints(newest = -1) {
   const g = game();
   const parts = [];
   const done = g.status !== 'playing';
+  const comeBack = mode === 'practice' ? 'Start a new word to play again.' : 'Come back tomorrow for a new puzzle.';
 
   if (done) {
-    parts.push(`<p class="possible">This round is over.${mode === 'practice' ? ' Start a new word to use hints again.' : ' Come back tomorrow for a new puzzle.'}</p>`);
-  } else if (g.rows.length === 0) {
-    parts.push(`<p class="possible">There are <strong>${ANSWERS.length.toLocaleString()}</strong> possible answers. Make a guess to narrow them down.</p>`);
-  } else {
-    const n = E.possibleAnswers(ANSWERS, g.rows).length;
-    parts.push(`<p class="possible">${n === 1
-      ? '<strong>Only one</strong> possible answer is left!'
-      : `<strong>${n.toLocaleString()}</strong> possible answers match your guesses so far.`}</p>`);
+    parts.push(g.gaveUp
+      ? `<p class="possible">You gave up. The word was <strong>${esc(g.answer.toUpperCase())}</strong>. ${comeBack}</p>`
+      : `<p class="possible">This round is over. ${comeBack}</p>`);
+  } else if (!g.hints.length) {
+    parts.push(`<p class="possible">You get ${E.MAX_HINTS} hints per word. The first shows one letter in its correct spot. ` +
+      `The next two each remove ${E.LETTERS_PER_ELIMINATION} letters that aren't in the word from the keyboard.</p>`);
   }
 
   if (g.hints.length) {
@@ -457,24 +459,52 @@ function renderHints(newest = -1) {
 
   if (!done) {
     const left = E.MAX_HINTS - g.hints.length;
-    parts.push(left > 0
-      ? `<div class="hint-actions"><button class="pill" data-act="reveal">${g.hints.length ? 'Show another hint' : 'Show a hint'} (${left} left)</button></div>`
-      : '<p class="empty-note">No hints left for this word. You can do it!</p>');
+    const label = g.hints.length === 0 ? 'Reveal a letter' : `Remove ${E.LETTERS_PER_ELIMINATION} letters`;
+    parts.push('<div class="hint-actions">' +
+      (left > 0
+        ? `<button class="pill" data-act="reveal">${label} <span class="dim">(${left} left)</span></button>`
+        : '<p class="empty-note">No hints left for this word.</p>') +
+      '<button class="pill danger" data-act="giveup">Give up</button></div>');
   }
   $('#hints-body').innerHTML = parts.join('');
 }
 
 $('#hints-body').addEventListener('click', (e) => {
-  if (e.target.closest('[data-act]')?.dataset.act !== 'reveal') return;
+  const act = e.target.closest('[data-act]')?.dataset.act;
+  if (act === 'giveup') return giveUp();
+  if (act !== 'reveal') return;
   const g = game();
-  if (g.status !== 'playing') return;
+  if (busy || g.status !== 'playing') return;
   const hint = E.nextHint(g.answer, g.rows, g.hints);
   if (!hint) return;
   g.hints.push(hint);
   saveGame();
   renderHints(g.hints.length - 1);
   renderModeBar();
+  renderKeyboard();
 });
+
+async function giveUp() {
+  const g = game();
+  if (busy || g.status !== 'playing') return;
+  const message = mode === 'daily'
+    ? 'Give up and reveal the word? This counts as a loss and resets your streak.'
+    : 'Give up and reveal the word?';
+  if (!confirm(message)) return;
+  g.status = 'lost';
+  g.gaveUp = true;
+  typed[mode] = '';
+  if (mode === 'daily') {
+    stats = E.recordDailyResult(stats, g.day, false, g.rows.length);
+    store.set('stats', stats);
+  }
+  saveGame();
+  closeDialogs();
+  renderAll();
+  toast(g.answer.toUpperCase(), 3500);
+  await sleep(1600);
+  if (game() === g && !document.querySelector('dialog[open]')) openStats();
+}
 
 // ---------- Settings ----------
 const setHard = $('#set-hard');

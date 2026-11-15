@@ -502,6 +502,8 @@ input[role="switch"]:focus-visible { outline: 2px solid var(--accent); outline-o
 .hint-card .mini-row { margin-top: 8px; font-size: 0.95rem; }
 .hint-card .mini-row .tile { width: 30px; height: 30px; border-radius: 5px; }
 .hint-card.new { animation: rise 260ms ease-out; }
-.hint-actions { display: flex; justify-content: center; margin-top: 16px; }
+.hint-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px; margin-top: 16px; }
+.hint-actions .empty-note { width: 100%; margin: 0; }
+.pill .dim { opacity: 0.75; font-weight: 600; }
 .hint-actions .pill { padding: 11px 22px; font-size: 1rem; }
 @media (prefers-reduced-motion: reduce) { .hint-card.new { animation: none; } }
